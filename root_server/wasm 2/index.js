@@ -1,1 +1,0 @@
-../../glfw/bb-slim/index.js

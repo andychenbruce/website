@@ -1,5 +1,5 @@
 [package]
-name = "server_frontend"
+name = "andy_http_server"
 version = "0.1.0"
 edition = "2021"
 authors = ["陈功 <chengong456@qq.com>"]

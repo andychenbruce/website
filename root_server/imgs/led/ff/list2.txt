@@ -1,5 +1,0 @@
-file led-blue.png
-file led-none.png
-file led-none.png
-file led-none.png
-file led-none.png
