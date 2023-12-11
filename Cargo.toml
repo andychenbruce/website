@@ -1,5 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-  "crates/andy_http_server"
+  "crates/andy_http_server",
+  "crates/wasm_test"
 ]
