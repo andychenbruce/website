@@ -1,0 +1,33 @@
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  <title>Motor PWM</title>
+  <link rel="stylesheet" href="style.css" type="text/css" />  
+</head>
+<body>
+  <div id="mainDiv">
+    <div id="redDiv">
+      <div><label>Motor A:</label><button id="redCW">CW</button><button id="redCCW">CCW</button></div>
+      <div>
+	<br/>
+	<br/>
+	<br/>
+	<label>Motor Speed:</label><label id="redLabel" class="speedLbl">0</label>
+	<input type="range" min="0" max="100" value="0" class="slider" id="redSlider" />
+      </div>
+    </div>
+    <div id="bluDiv">
+      <div><label>Motor B:</label><button id="bluCW">CW</button><button id="bluCCW">CCW</button></div>
+      <div>
+	<br/>
+	<br/>
+	<br/>
+	<label>Motor Speed:</label><label id="bluLabel" class="speedLbl">0</label>
+	<input type="range" min="0" max="100" value="0" class="slider" id="bluSlider" />
+      </div>
+    </div>
+  </div>
+  <script src="main.js"></script>
+</body>
+</html>

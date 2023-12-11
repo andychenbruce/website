@@ -1,0 +1,47 @@
+<?php
+
+$fileList=<<<END
+index
+aboutPage
+contactPage
+helpPage
+menuPage
+p01_Capstone
+p02_PWM
+p03_PhoneCtrl
+p04_MotorPWM
+p05_EncoderDrvr
+p06_GCode
+p07_ImageSeg
+p08_DepthPercept
+p09_TensorFlow
+p10_OpenGLSimple
+p11_Wasm
+p12_Mandelbrot
+p13_Shadows
+p14_Icosahedron
+p15_Shadows
+p16_Reflections
+p17_Textures
+p18_Earth
+p19_Smoke
+p20_STL
+p21_Jello
+p22_Boltz
+p23_Marbles
+p24_NavierStokes
+END;
+
+function main() {
+  global $fileList;
+  $files = explode("\n", $fileList);
+  foreach ($files as $fn) {
+    $cmd = "php $fn.php | sed 's/\\.php\"/.html\"/g' > ../$fn.html";
+    echo("$cmd\n");
+    system($cmd);
+  }
+}
+
+main();
+
+?>

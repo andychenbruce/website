@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="cache-control" content="no-store" />
+  <meta http-equiv="pragma" content="no-cache" />
+<title>Drawing a Sphere by Recursive Segmentation of an Icosahedron</title>
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/styles/default.min.css">
+<link rel="stylesheet" href="style.css" />  
+</head>
+<body>
+<div class="wrapperDiv">
+<div class="mainMenuBarDiv">
+<ul class="mainMenuBarList">
+<li class="mb_li"><a class="button" href="index.html">Home</a></li>
+<li class="mb_li"><a class="button" href="menuPage.html">Menu</a></li>
+<li class="mb_li"><a class="button" href="aboutPage.html">About</a></li>
+<li class="mb_li"><a class="button" href="contactPage.html">Contact</a></li>
+<li class="mb_li"><a class="button" href="helpPage.html">Help</a></li>
+</ul>
+</div>
+<div class="headerDiv">
+<h1>Drawing a Sphere by Recursive Segmentation of an Icosahedron</h1>
+</div>
+<div class="contentDiv">
+<div id="dvMain">
+<div id="dvSmallButtons" class="dvB"></div>
+<div id="dvLargeButtons" class="dvB"></div>
+<canvas id="canvas" width="800" height="800" oncontextmenu="event.preventDefault()"></canvas>
+</div>
+<hr class="clearLeft" />
+
+<div class="imageContainer" class="floatLeft">
+<img src="imgs/GoldenRectangle.jpg" width="486" height="300" /><div class="imageCaption" style="width:486 px;">Golden Rectangle
+</div></div>
+To draw a sphere with OpenGL, we start with a <a href="https://en.wikipedia.org/wiki/Golden_rectangle">Golden Rectangle</a>.
+<hr class="clearLeft" /><iframe class="size400" src="size400.html?t=28&k=A"></iframe>
+Next, we draw three orthoganal golden rectangles centered on the origin.
+<hr class="clearLeft" /><iframe class="size400" src="size400.html?t=28&k=B"></iframe>
+By connecting the corners of the triangle, we get a 20-face
+<a href="https://en.wikipedia.org/wiki/Icosahedron">Icosahedron</a>.
+<hr class="clearLeft" /><iframe class="size400" src="size400.html?t=28&k=C"></iframe>
+Then we can remove the rectangles since they were only there for educational purposes.
+<hr class="clearLeft" /><iframe class="size400" src="size400.html?t=28&k=D"></iframe>
+Then we draw the fragments for each triangular face.
+<hr class="clearLeft" /><iframe class="size400" src="size400.html?t=28&k=E"></iframe>
+The next step is to split each of the 20 triangular faces into four smaller triangles,
+and then normalize each point so they are all the same distance from the origin.
+
+This creates a polyhedron with 80 faces.  
+<hr class="clearLeft" /><iframe class="size400" src="size400.html?t=28&k=F"></iframe>
+Then we recursively repeat the procedure by subdividing every face again, to create a polyhedron with 320 faces.
+<hr class="clearLeft" /><iframe class="size400" src="size400.html?t=28&k=H"></iframe>
+<p>Now, let's recurse one more time to get 1280 faces, add a rotating light, and add a diffuse light effect to the sphere.
+  The GLSL shader program to do that is listed.</p>
+<pre><code class="codeClass" >
+#version 300 es
+precision mediump float;
+out vec4 fragColor;
+
+uniform int objEnum;
+uniform vec3 setColor;
+uniform float ambientBrightness;
+uniform float diffuseBrightness;
+uniform vec3 lightLocation;
+
+vec3
+shadedSphere(vec3 mpos, vec3 color)
+{
+  vec3 v = lightLocation - mpos;
+  float cosine = dot(normalize(mpos), normalize(v)); // Cosine
+  if (cosine &lt; 0.0) {
+    return ambientBrightness * color;
+  }
+  float cf = clamp(cosine * diffuseBrightness, 0.0, 1.0);
+  cf = clamp(cf + ambientBrightness, 0.0, 1.0);  
+  return cf * color;
+}
+
+void
+main()
+{
+  vec3 f3 = shadedSphere(mPosition, setColor);
+  fragColor = vec4(f3.rgb, 1.0);  // Set opacity to 100%
+}
+</code></pre>
+  
+<hr class="clearLeft" /><iframe class="size400" src="size400.html?t=28&k=I"></iframe>
+If the sphere has a shiny surface, there will also be a spectral light effect.
+<pre><code class="codeClass" >
+#version 300 es
+
+precision mediump float;
+
+#define PI 3.14159265358979
+
+out vec4 fragColor;
+
+uniform int objEnum;
+uniform vec3 setColor;
+uniform float ambientBrightness;
+uniform float diffuseBrightness;
+uniform vec3 lightLocation;
+
+vec3
+shadedSphereWithSpecular(vec3 mpos, vec3 color)
+{
+  vec3 v = lightLocation - mpos;
+  float cosine = dot(normalize(mpos), normalize(v));
+  float cf = clamp(cosine * diffuseBrightness, 0.0, 1.0);
+  vec3 incident = normalize(mpos - cameraLocation);   // Incident vector
+  vec3 n = normalize(mpos); // Normal vector to surface of the sphere
+  vec3 r = reflect(incident, n);   // Reflected vector
+  vec3 realmpos = mpos;
+  float cosAngle = dot(normalize(r), normalize(v));
+  cf = clamp(cf + ambientBrightness, 0.0, 1.0);
+  vec3 lightColor = vec3(1.0, 1.0, 1.0);
+  vec3 baseColor = cf * color;
+  if (cosAngle &lt; 0.0) {
+    return baseColor;
+  }
+  float shinyness = 5.0;
+  float factor = pow(cosAngle, shinyness);
+  return ((1.0 - factor) * baseColor) + (factor * lightColor);
+}
+
+void
+main()
+{
+  vec3 f3 = shadedSphereWithSpecular(mPosition, setColor);
+  fragColor = vec4(f3.rgb, 1.0);  // Set opacity to 100%
+}
+</code></pre>
+
+<hr class="clearLeft" /><iframe class="size400" src="size400.html?t=28&k=J"></iframe>
+Now, we can remove the wire framework.
+  
+<hr class="clearLeft" /><iframe class="size400" src="size400.html?t=28&k=K"></iframe>
+Since a solid red sphere is boring, let's make it into a beachball.
+<pre><code class="codeClass" >
+#version 300 es
+
+precision mediump float;
+
+#define PI 3.14159265358979
+
+out vec4 fragColor;
+
+vec3
+beachBall(vec3 mpos)
+{
+  mpos = normalize(mpos);
+  float x = mpos.x;
+  float z = mpos.z;
+  float r = x*x + z*z;
+  if (r &lt; 0.03) {
+    return vec3(1, 1, 0); // Yellow
+  }
+  float c2 = x*x/r;
+  if (c2 &lt; 0.75) {
+    if (x &gt; 0.0) {
+      if (z &gt; 0.0) {
+	return vec3(0, 1, 0); // Green;
+      } else {
+	return vec3(0, 0, 1); // Blue
+      }
+    } else {
+      return vec3(1, 1, 1); // White
+    }
+  } else {
+    if (x &gt; 0.0) {
+      return vec3(1, 1, 1); // White
+    } else {
+      return vec3(1, 0, 0); // Red
+    }
+  }
+}
+
+void
+main()
+{
+  vec3 f3 = beachball(mPosition);
+  fragColor = vec4(f3.rgb, 1.0);  // Set opacity to 100%
+}
+</code></pre>
+<hr class="clearLeft" />
+<iframe class="size400" src="size400.html?t=28&k=L"></iframe>
+<p>
+  Finally, we turn the light back on, with both diffuse and spectral effects.  First, we call <span class="codeSpan">beachBall()</span> to calculate the color, and then pass that value to <span class="codeSpan">shadedSphereWithSpecular()</span>.  The code for the GLSL fragment shader to do this is listed below.
+</p>
+<pre><code class="codeClass" >
+
+vec3
+beachBallWithSpecular(vec3 mpos)
+{
+  return shadedSphereWithSpecular(mpos, beachBall(mpos));
+}
+
+void
+main()
+{
+  vec3 f3 = beachBallWithSpecular(vec3 mpos)
+  fragColor = vec4(f3.rgb, 1.0);  // Set opacity to 100%
+}
+</code></pre>
+<p>
+And that how you draw a sphere in OpenGL.  
+</p>
+<p>You can click on any of the images to rotate and zoom.</p>
+
+<hr class="clearLeft" />
+</div>
+</div>
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+<script>
+var g = {};
+g.smallButtons = true;
+g.buttonArray = [
+[ 0, 'R', 'Reset' ],
+[ 0, 'r', 'Run' ],
+[ 0, 'S', 'Pause' ],
+];
+var Module = {
+ canvas: document.getElementById("canvas"),
+ arguments: ["-tab", "28", "-smallButtons" ]
+};
+</script>
+<script src="wasm/readfile.js"></script>
+<script src="wasm/buttons.js"></script>
+<script src="wasm/index.js"></script>
+</body>
+</html>

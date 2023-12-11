@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="cache-control" content="no-store" />
+  <meta http-equiv="pragma" content="no-cache" />
+<title>Apply Textures to 3D Surfaces</title>
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/styles/default.min.css">
+<link rel="stylesheet" href="style.css" />  
+</head>
+<body>
+<div class="wrapperDiv">
+<div class="mainMenuBarDiv">
+<ul class="mainMenuBarList">
+<li class="mb_li"><a class="button" href="index.html">Home</a></li>
+<li class="mb_li"><a class="button" href="menuPage.html">Menu</a></li>
+<li class="mb_li"><a class="button" href="aboutPage.html">About</a></li>
+<li class="mb_li"><a class="button" href="contactPage.html">Contact</a></li>
+<li class="mb_li"><a class="button" href="helpPage.html">Help</a></li>
+</ul>
+</div>
+<div class="headerDiv">
+<h1>Apply Textures to 3D Surfaces</h1>
+</div>
+<div class="contentDiv">
+<div id="dvMain">
+<div id="dvSmallButtons" class="dvB"></div>
+<div id="dvLargeButtons" class="dvB"></div>
+<canvas id="canvas" width="800" height="800" oncontextmenu="event.preventDefault()"></canvas>
+</div>
+<hr class="clearLeft" />
+<canvas id="imgCanvas" width="900" height="900"></canvas>
+
+  <p>For this project, I load several images into the GPU video memory and apply them as textures to 3D surfaces.  Then I compute ray traces from the sphere to the displayed images to create reflections.</p>
+
+  <p>You can use your mouse and drag to rotate the 3D image, or use the scroll wheel to zoom in or out.</p>
+
+  <p>The code samples listed below are the application code I wrote in C++,
+  and the fragment shader code I wrote in GLSL.</p>
+
+  
+<hr class="clearLeft" />
+  <pre><code class="codeClass" >
+static void
+initTab(void)
+{
+  checkGLError();
+  loadTexture(TextureMonaLisa);
+  loadTexture(TextureAlanTuring);
+  loadTexture(TextureVonNeumann);
+  loadTexture(TextureDaVinci);
+}
+
+static void
+resetTab(void)
+{
+  g.tp-&gt;timerFlag = false;
+  g.tp-&gt;lightsFlag = false;
+  g.tp-&gt;isAnimated = true;
+  g.tp-&gt;backgroundColor = 0xd0d0ff;
+  g.tp-&gt;cameraLocation *= 2.0;
+  g.tp-&gt;wireFlag = false;
+  g.tp-&gt;fragmentsFlag = true;
+}
+
+static void
+restoreTab(void)
+{
+  //glDisable(GL_BLEND);
+}
+
+static void
+monaLisa(void)
+{
+  glm::mat4 mm = mat4(1);
+  mm = glm::translate(mm, vec3(1.2, 1.0, 2.0));
+  int tx = TextureMonaLisa;
+  float wh = ((float) textureTab[tx].width) / textureTab[tx].height;
+  const float sc = 1.1;
+  mm = glm::scale(mm, vec3(sc * wh, sc, 1.0));
+  g.tp-&gt;setModelMatrix(mm);
+  drawWall(OE_MonaLisa);
+}
+
+static void
+daVinci(void)
+{
+  glm::mat4 mm = mat4(1);
+  mm = glm::translate(mm, vec3(-1.2, 1.0, 2.0));
+  int tx = TextureDaVinci;
+  float wh = ((float) textureTab[tx].width) / textureTab[tx].height;
+  const float sc = 1.0;
+  mm = glm::scale(mm, vec3(sc * wh, sc, 1.0));
+  g.tp-&gt;setModelMatrix(mm);
+  drawWall(OE_DaVinci);
+}
+
+static void
+alanTuring(void)
+{
+  glm::mat4 mm = mat4(1);
+  mm = glm::rotate(mm, (float) (M_PI/2.0), vec3(0, 1, 0));
+  mm = glm::translate(mm, vec3(-1, 1.0, 2.0));
+  int tx = TextureAlanTuring;
+  float wh = ((float) textureTab[tx].width) / textureTab[tx].height;
+  mm = glm::scale(mm, vec3(1.0 * wh, 1.0, 1.0));
+  g.tp-&gt;setModelMatrix(mm);
+  drawWall(OE_AlanTuring);
+}
+
+static void
+vonNeumann(void)
+{
+  glm::mat4 mm = mat4(1);
+  mm = glm::rotate(mm, (float) (M_PI/2.0), vec3(0, 1, 0));
+  mm = glm::translate(mm, vec3(1.0, 2.0, 2.0));
+  int tx = TextureVonNeumann;
+  float wh = ((float) textureTab[tx].width) / textureTab[tx].height;
+  // epf("wh = %f", wh);
+  mm = glm::scale(mm, vec3(1.0 * wh, 1.0, 1.0));
+  g.tp-&gt;setModelMatrix(mm);
+  drawWall(OE_VonNeumann);
+}
+
+static void
+doSphere(float x, float y, float z, GLint oe)
+{
+  mat4 mm = mat4(1);
+  mm = glm::translate(mm, vec3(x, y, z));
+  setCameraLocation(g.tp-&gt;cameraLocation);
+  g.tp-&gt;setModelMatrix(mm);
+  drawSphere(3, oe);
+}
+
+static void
+paintTab(void)
+{
+  setDepthTest(true);
+  mat4 mm = glm::mat4(1);
+  mm = glm::mat4(1);
+  mm = glm::translate(mm, vec3(0.0, -2.0, 0.0));
+  mm = glm::scale(mm, vec3(1.0, 1.0, 1.0));
+  g.tp-&gt;setModelMatrix(mm);
+  setCullFace(false);
+  drawTileFloor(0x9070a0);
+  alanTuring();
+  vonNeumann();
+  daVinci();
+  monaLisa();
+  doSphere(0, 0, 0, OE_ShinySphere);
+}
+</code></pre>
+<hr class="clearLeft" />
+  <pre><code class="codeClass" >
+#version 410 core
+//#version 300 es
+
+precision mediump float;
+
+#define PI 3.14159265358979
+
+const int OE_ShinySphere = 24;
+const int OE_TileFloor = 25;
+const int OE_MonaLisa    = 51;
+const int OE_EarthGlobe  = 52;
+const int OE_JupiterGlobe= 53;
+const int OE_AlanTuring  = 54;
+const int OE_VonNeumann  = 55;
+const int OE_DaVinci     = 56;
+
+out vec4 fragColor;
+
+uniform int objEnum;
+uniform vec3 setColor;
+
+uniform sampler2D sampler2; // MonaLisa
+uniform sampler2D sampler3; // EarthGlobe
+uniform sampler2D sampler4; // JupiterGlobe
+uniform sampler2D sampler5; // AlanTuring
+uniform sampler2D sampler6; // VonNeumann
+uniform sampler2D sampler7; // DaVinci
+
+float
+distanceFromLineToPoint(vec3 v1, vec3 v2, vec3 p)
+{
+  return length(cross((p - v1), (p - v2))) / distance(v1, v2);	
+}
+
+float
+distanceFromRayToPoint(vec3 startingPoint, vec3 directionUnitVec, vec3 p)
+{
+  vec3 endPoint = startingPoint + directionUnitVec;
+  vec3 d1 = p - startingPoint;
+  vec3 d2 = p - endPoint;
+  if (length(d2) &gt; length(d1)) {
+    return length(d1);
+  }
+  return length(cross(d1, d2));
+}
+
+
+vec3
+tileFloorColor(vec3 mpos)
+{
+  int x = int(2.5 * (2.0 + mpos.x));
+  int z = int(2.5 * (2.0 + mpos.z));
+  vec3 color;
+  if ((x & 1) == (z & 1)) {
+    color = setColor;
+  } else {
+    color = vec3(1.0, 1.0, 1.0); // White
+  }
+  return color;
+}
+
+vec3
+shadedSphere(vec3 mpos, vec3 color)
+{
+  vec3 v = lightLocation - mpos;
+  float cosine = dot(normalize(mpos), normalize(v)); // Cosine
+  if (cosine &lt; 0.0) {
+    return ambientBrightness * color;
+  }
+  float cf = clamp(cosine * diffuseBrightness, 0.0, 1.0);
+  cf = clamp(cf + ambientBrightness, 0.0, 1.0);  
+  return cf * color;
+}
+
+vec3
+doTexture(vec3 mpos, sampler2D sampler)
+{
+  float x = 0.5 * (1.0 - mpos.x);
+  float y = 0.5 * (1.0 - mpos.y);
+  return texture(sampler, vec2(x, y)).rgb;
+}
+
+vec3
+monaLisa(vec3 mpos)
+{
+  float x = 0.5 * (1.0 - mpos.x);
+  float y = 0.5 * (1.0 - mpos.y);
+  return texture(sampler2, vec2(x, y)).rgb;
+}
+
+float
+atan2(float y, float x)
+{
+  float ax = abs(x);
+  float ay = abs(y);
+  float t = (ax &gt;= ay) ? atan(ay/ax) : (PI/2.0 - atan(ax/ay));
+  return (y &gt; 0.0) ?
+    ((x &gt; 0.0) ? t : (PI - t)) :
+    ((x &gt; 0.0) ? (2.0*PI - t) : (PI + t));
+}
+
+vec3
+shinySphere(vec3 mpos)
+{
+  vec3 lightPos = lightLocation;
+  //mpos = normalize(mpos);
+  vec3 fakeCameraLocation = cameraLocation;
+  vec3 v = normalize(mpos - fakeCameraLocation);   // Incident vector
+  vec3 n = normalize(mpos); // Normal vector to surface of the sphere
+  vec3 r = reflect(v, n);   // Reflected vector
+  vec3 realmpos = mpos;
+  float multiplyRByThis = ((-1.0)-realmpos.y)/r.y;
+  if (multiplyRByThis &gt; 0.0) {//not phantom reflection
+    vec3 t =  multiplyRByThis*r;
+    t = t + realmpos;
+    if ((abs(t.x) &lt; 2.0) && (abs(t.z) &lt; 2.0)) {
+      return tileFloorColor(t);
+    }
+  }
+  if (length(mpos - lightPos) &lt; length(lightPos)) {
+    float d = distanceFromRayToPoint(mpos, r, lightPos);
+    if (d &lt; LightBulbRadius) {
+      return vec3(1, 1, 1); // Lightbulb reflection
+    }
+  }
+  //vec3 textureRotateVector = vec3(0, 1, 0);
+  //float textureRotateRadians = 0.0;
+  vec3 textureTranslate;
+  float textureWH;
+  float textureSC;
+  bool isRotated;
+  textureTranslate = vec3(1.2, 1.0, 2.0);
+  textureWH = 0.671141;
+  textureSC = 1.1;
+  //isRotated = false;
+  multiplyRByThis = ((textureTranslate.z)-realmpos.z)/r.z;
+  if(multiplyRByThis &gt; 0.0){//not phantom reflection
+    vec3 t = r*multiplyRByThis;
+    t *= vec3(1.0/(textureSC*textureWH), 1.0/textureSC, 1.0);
+    t += -1.0*textureTranslate;
+    if (((t.x) &gt; -1.0) && ((t.x) &lt; 1.0) && ((t.y) &gt; -1.0) && ((t.y) &lt; 1.0)) {
+      return(doTexture(t, sampler2));//mona lisa
+    }
+  }
+
+  textureTranslate = vec3(-1.2, 1.0, 2.0);
+  textureWH = 0.714167;
+  textureSC = 1.0;
+  //isRotated = false;
+  multiplyRByThis = ((textureTranslate.z)-realmpos.z)/r.z;
+  if(multiplyRByThis &gt; 0.0){//not phantom reflection
+    vec3 t = r*multiplyRByThis;
+    t *= vec3(1.0/(textureSC*textureWH), 1.0/textureSC, 1.0);
+    t += -1.0*textureTranslate;
+    if (((t.x) &gt; -1.0) && ((t.x) &lt; 1.0) && ((t.y) &gt; -1.0) && ((t.y) &lt; 1.0)) {
+      return(doTexture(t, sampler7));//davinci
+    }
+  }
+
+  
+  textureTranslate = vec3(-1, 1.0, 2.0);
+  textureWH = 1.000000;
+  textureSC = 1.0;
+  isRotated = true;
+  if(isRotated){
+    multiplyRByThis = ((textureTranslate.z)-realmpos.x)/r.x;
+  }else{
+    multiplyRByThis = ((textureTranslate.z)-realmpos.z)/r.z;
+  }
+  if(multiplyRByThis &gt; 0.0){//not phantom reflection
+    vec3 t = r*multiplyRByThis;
+    if(isRotated){//undo rotation????
+      float tmpX = t.x;
+      t.x = -t.z;
+      t.z = tmpX;
+    }
+    t *= vec3(1.0/(textureSC*textureWH), 1.0/textureSC, 1.0);
+    t += -1.0*textureTranslate;
+    if (((t.x) &gt; -1.0) && ((t.x) &lt; 1.0) && ((t.y) &gt; -1.0) && ((t.y) &lt; 1.0)) {
+      return(doTextureGray(t, sampler5));//turing
+    }
+  }
+
+  textureTranslate = vec3(1.0, 2.0, 2.0);
+  textureWH = 0.760845;
+  textureSC = 1.0;
+  isRotated = true;
+  if(isRotated){
+    multiplyRByThis = ((textureTranslate.z)-realmpos.x)/r.x;
+  }else{
+    multiplyRByThis = ((textureTranslate.z)-realmpos.z)/r.z;
+  }
+  if(multiplyRByThis &gt; 0.0){//not phantom reflection
+    vec3 t = r*multiplyRByThis;
+    if(isRotated){//undo rotation????
+      float tmpX = t.x;
+      t.x = -t.z;
+      t.z = tmpX;
+    }
+    t *= vec3(1.0/(textureSC*textureWH), 1.0/textureSC, 1.0);
+    t += -1.0*textureTranslate;
+    if (((t.x) &gt; -1.0) && ((t.x) &lt; 1.0) && ((t.y) &gt; -1.0) && ((t.y) &lt; 1.0)) {
+      return(doTextureGray(t, sampler6));//von new man
+    }
+  }
+  return vec3(0, 1, 1); // Cyan
+}
+
+vec3
+f3main()
+{
+  switch (objEnum) {
+  case OE_SetColor:    return setColor;
+  case OE_TileFloor:   return tileFloorColor(mPosition);
+  case OE_ShinySphere: return shinySphere(mPosition);
+  case OE_MonaLisa:    return doTexture(mPosition, sampler2);
+  case OE_AlanTuring:  return doTextureGray(mPosition, sampler5);
+  case OE_VonNeumann:  return doTexture(mPosition, sampler6);
+  case OE_DaVinci:     return doTexture(mPosition, sampler7);
+  default: return vec3(0, 1, 0); // Green
+  }
+}
+
+void
+main()
+{
+  vec3 f3 = f3main();
+  fragColor = vec4(f3.rgb, 1);
+}
+</code></pre>
+<hr class="clearLeft" />
+    
+<hr class="clearLeft" />
+</div>
+</div>
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+<script>
+var g = {};
+g.smallButtons = true;
+g.buttonArray = [
+[ 0, 'R', 'Reset' ],
+[ 0, 'r', 'Run' ],
+[ 0, 'S', 'Pause' ],
+];
+var Module = {
+ canvas: document.getElementById("canvas"),
+ arguments: ["-tab", "10", "-smallButtons" ]
+};
+</script>
+<script src="wasm/readfile.js"></script>
+<script src="wasm/buttons.js"></script>
+<script src="wasm/index.js"></script>
+</body>
+</html>

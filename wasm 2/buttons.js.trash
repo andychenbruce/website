@@ -1,0 +1,102 @@
+//
+//  button.js
+//
+
+console.log("Foobar - buttons.js");
+
+var g = {};
+
+g.buttons = [
+  [ 2, 'R', 'Reset',  'm', 'Menu' ],
+  [ 2, 'l', 'Lights', 'r', 'Run'  ],
+  [ 2, 'a', 'Anchor', 'S', 'Stop' ],
+  [ 2, 'w', 'Wires',  's', 'Step' ],
+  [ 2, 'f', 'Frags',  'c', 'Cage' ],
+  [ 4, 44 ],
+  [ 1, 'Speed'    ],
+  [ 1, 'Ambient'  ],
+  [ 1, 'Diffuse'  ],
+  [ 1, 'Whatever' ],
+  [ 5, 'P' ],
+  [ 2, 'd', 'Debug',  'Q', 'Quit' ]
+];
+
+function doButtons() {
+  var i;
+  var h = '';
+  g.buttons.forEach(function(bx) {
+    var bn = bx[1];
+    switch (bx[0]) {
+    case 1:
+      h += '<button class=bb1 data=' + bn + '>' + bn + '</button>';
+      break;
+
+    case 2:
+      h += '<button class=bb2 data=' + bx[1] + '>' + bx[2] + '</button>';
+      h += '<button class=bb2 data=' + bx[3] + '>' + bx[4] + '</button>';
+      break;
+
+    case 4:
+      for (i = 0; i < bx[1]; ++i) {
+	h += '<button class=bb4 data=' + i + '>' + i + '</button>';
+      }
+      break;
+
+    case 5:
+      var n = bn.charCodeAt(0);
+      var a = 'A'.charCodeAt(0);
+      for (i = a; i <= n; ++i) {
+	var s = String.fromCharCode(i);
+	h += '<button class=bb4 data=' + s + '>' + s + '</button>';
+      }
+      break;
+      
+    default:
+      alert("Bad case");
+      break;
+    }
+  });
+  g.dv.html(h);
+  $('button').click(function() {
+    var th = $(this);
+    var d = th.attr('data');
+    var n = parseInt(d);
+    if (isNaN(n)) {
+      n = d.charCodeAt(0);
+    }
+    console.log("click n={" + n + "} - {" + th.text() + "}");
+    _sendMessage(n, 1);
+  });
+}
+
+$(document).ready(function () {
+  g.dm = $('#dvMain');
+  g.dv = $('#dv1');
+  g.cv = $('#canvas');
+  
+  g.dm.css({
+    'position': 'relative',
+    'left': 0,
+    'top': 0,
+    'background-color': 'yellow',
+    'width': 256+800,
+    'height':800
+  });
+
+  g.dv.css({
+    'position': 'absolute',
+    'left': 0,
+    'top': 0,
+    'width': 256,
+    'height': 800
+  });
+
+  g.cv.css({
+    'position': 'absolute',
+    'left': 256,
+    'top': 0,
+    'width': 800,
+    'height': 800
+  });
+  doButtons();
+});

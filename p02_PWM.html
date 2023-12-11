@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="cache-control" content="no-store" />
+  <meta http-equiv="pragma" content="no-cache" />
+<title>PWM on a Raspberry Pi using direct hardware access</title>
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/styles/default.min.css">
+<link rel="stylesheet" href="style.css" />  
+</head>
+<body>
+<div class="wrapperDiv">
+<div class="mainMenuBarDiv">
+<ul class="mainMenuBarList">
+<li class="mb_li"><a class="button" href="index.html">Home</a></li>
+<li class="mb_li"><a class="button" href="menuPage.html">Menu</a></li>
+<li class="mb_li"><a class="button" href="aboutPage.html">About</a></li>
+<li class="mb_li"><a class="button" href="contactPage.html">Contact</a></li>
+<li class="mb_li"><a class="button" href="helpPage.html">Help</a></li>
+</ul>
+</div>
+<div class="headerDiv">
+<h1>PWM on a Raspberry Pi using direct hardware access</h1>
+</div>
+<div class="contentDiv">
+
+<div class="contentDiv">
+<p>As part of my Capstone robot project, I need to control the speed of the drive wheels.  This is done using <strong>Pulse Width Modulation (PWM)</strong>.  To implement PWM on my robot, I needed to program and control the hardware timers.</p>
+<p>There are libraries for PWM, but I decided not to use any library because they use wasteful busy loops and I needed tighter control of the Raspberry Pi's resources.  I also wanted to learn and understand how to program direct device access.</p>
+<p>The ultimate goal is to control motors, but I started with LEDs since they are easier to visualize while debugging.</p>
+<hr class="clearLeft" />
+<p class="clearLeft">The images below show the GPIO Pin header for a Rasberry Pi. You can see that the PWM outputs are on <strong>Pin-32</strong> labeled <strong>BCM-12 PWM0</strong> and <strong>Pin-33</strong> labeled <strong>BCM-13 PWM1.</strong>  I also use the <strong>Ground</strong> on <strong>Pin-6.</strong></p>
+<img class="floatLeft imageAlone" src="imgs/RaspberryPi-GPIO.png" alt="Raspberry Pi GPIO"/>
+<div class="imageContainer">
+  <img src="imgs/LED-Timer.gif" alt="LED PWM Circuit" height="470"/>
+  <img src="imgs/PWM-Circuit.png" class="lowerRight" alt="LED PWM Circuit" height="170"/>
+</div>
+<hr class="clearLeft" />
+<p>The Raspberry Pi uses memory-mapped I/O.  This means that device registers can be read and written as if they were locations in memory.  The hardware address of the GPIO registers depends on the version the Raspberry Pi board.  I am using a RPi4, which has a <strong>Broadcom BCM2711 SoC with an ARM Cortex-A72.</strong></p>
+<p>The <a href="pdf/bcm2711-peripherals.pdf">BCM2711 Peripherals Manual</a> documents the starting address of the GPIO registers.  For the RPi4, the address is 0xfe000000.  But I also want my program to work with a RPi3, where the address is 0x3f00000.  So I use this code to find the RPi model number:</p>
+<pre><code class="codeClass" >
+static UInt32
+getModelInfo(void)
+{
+  static const char fn[] = "/sys/firmware/devicetree/base/model";
+  char modelString[64];
+  readFileToBuffer(fn, modelString, sizeof(modelString));
+  if (isPrefix("Raspberry Pi 3 ", modelString)) {
+    return 3;
+  }
+  if (isPrefix("Raspberry Pi 4 ", modelString)) {
+    return 4;
+  }
+  fatal("Unsupported RPi model: %s", modelString);
+}
+</code></pre>
+<p>I then use the <span class="codeSpan">mmap()</span> system call to map the GPIO registers into virtual memory.</p>
+<pre><code class="codeClass" >
+static const char devmem[] = "/dev/mem";
+
+static UInt32 *
+mapMem(int fd, UInt32 addr)
+{
+  void *p = mmap(0, BLOCK_SIZE,
+		   PROT_READ|PROT_WRITE,
+		   MAP_SHARED,
+		   fd, addr);
+  if (p == MAP_FAILED) {
+    fatal("mmap failed for %s, addr=0x%08x: %s",
+	  devmem, addr, syserr());
+  }
+  return (UInt32 *) p;
+}
+
+static void
+mapPeriphrialPtrs(void)
+{
+  int fd = open(devmem, O_RDWR | O_SYNC);
+  if (fd &lt; 0) {
+    fatal("Can't open %s: %s", devmem, syserr());
+  }
+  UInt32 model = getModelInfo();
+  UInt32 periBase;
+  switch (model) {
+  case 3: periBase = RPI3_PERI_BASE; break;
+  case 4: periBase = RPI4_PERI_BASE; break;
+  default: fatal("Unsupported RPi model: %d", model);
+  }
+  g.pwmRegPtr  = mapMem(fd, periBase + PWM_BASE_OFFSET);
+  g.clkRegPtr  = mapMem(fd, periBase + CLK_BASE_OFFSET);
+  g.gpioRegPtr = mapMem(fd, periBase + GPIO_BASE_OFFSET);
+  close(fd);
+}
+</code></pre>
+<p>The rest of the code is a lot of low-level register banging.</p>
+<p>You can see <a href="c02_Code.html">The Source code here</a>, or <a href="c02_PWM.zip">download a zipfile by clicking here</a>.</p>
+<p>You can compile it using this makefile:</p>
+<pre><code class="codeClass" >
+#
+# Makefile
+#
+  
+CC      := gcc
+CFLAGS  := -O3 -Wall -Wextra -Werror
+
+pwmLed: pwmLED.c
+        ${CC} ${CFLAGS} -o $@ $&lt;
+
+clean:
+        rm -f pwmLed *~
+</code></pre>
+<p>Compile it by running <span class="codeSpan">make</span>.</p>
+<div class="terminalDiv"><pre>
+&gt; make
+gcc -O3 -Wall -Wextra -Werror -o pwmLed pwmLED.c
+&gt;
+</pre></div>
+<p>You can use the <span class="codeSpan">-help</span> flag to show the usage.</p>
+<div class="terminalDiv">
+<pre>  
+&gt; sudo su
+# whoami
+root
+# pwmLED -help
+Usage: pwmLed &lt;red-duty-cycle-%&gt; &lt;red-frequency&gt; &lt;blue-duty-cycle-%&gt; &lt;blue-freq&gt;
+duty-cycle: 0 to 100
+frequency: Hertz, 1 to 18000000
+#
+#
+</pre>
+</div>
+<p>So, let's give it a try, with a two-hertz, 50% duty cycle to the red LED, and a one-hertz, 50% duty cycle to the blue LED:</p>
+<div class="terminalDiv">
+<pre>  
+# pwmLED 50 2 50 1
+#
+</pre>
+</div>
+<img class="floatLeft imageAlone" src="imgs/LED-Timer.gif" alt="LED PWM Circuit"/>
+<p>Looks's good!</p>
+<p>After the program exits <strong>the LED continues to blink</strong> because no software is running.  The blinking is controlled solely by the PWM hardware registers. The CPU is doing nothing.</p>
+
+<hr class="clearLeft" />
+<p>Now, let's try a 5Hz, 20% duty cycle on blue, and nothing on red:</p>
+
+<div class="terminalDiv">
+<pre>  
+# pwmLED 0 1 20 5
+#
+</pre>
+</div>
+<img class="floatLeft imageAlone" src="imgs/LED-Timer-5Hz-20-Blue.gif" alt="LED PWM Circuit Blue 5Hz"/>
+<p>Perfect!</p>
+<hr class="clearLeft" />
+
+<p><a href="code/c02_Code.html">Source code for this project</a></p>
+
+<p><a href="zip/c02_PWM.zip">Download a zipfile by clicking here</a>.</p>
+
+<p>The next step is to use this program to control motors: <a href="p04-PWM-Motors.html">Motor Speed Control using Raspberry Pi PWM</a>.</p>
+<p>Another related project you can see is <a href="p03-RaspPi-LED-Cellphone.html">Controlling a Raspberry Pi with a Cell Phone</a>.</p>
+<hr class="clearLeft" />
+</div>
+  
+<hr class="clearLeft" />
+</div>
+</div>
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

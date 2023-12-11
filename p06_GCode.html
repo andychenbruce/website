@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="cache-control" content="no-store" />
+  <meta http-equiv="pragma" content="no-cache" />
+<title>Controlling a Delta-X Robot Arm with G-Code</title>
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/styles/default.min.css">
+<link rel="stylesheet" href="style.css" />  
+</head>
+<body>
+<div class="wrapperDiv">
+<div class="mainMenuBarDiv">
+<ul class="mainMenuBarList">
+<li class="mb_li"><a class="button" href="index.html">Home</a></li>
+<li class="mb_li"><a class="button" href="menuPage.html">Menu</a></li>
+<li class="mb_li"><a class="button" href="aboutPage.html">About</a></li>
+<li class="mb_li"><a class="button" href="contactPage.html">Contact</a></li>
+<li class="mb_li"><a class="button" href="helpPage.html">Help</a></li>
+</ul>
+</div>
+<div class="headerDiv">
+<h1>Controlling a Delta-X Robot Arm with G-Code</h1>
+</div>
+<div class="contentDiv">
+
+<div class="imageContainer" class="floatLeft">
+<img src="imgs/Delta-X.jpg" width="487" height="479" /><div class="imageCaption" style="width:487 px;">Delta-X Robot
+</div></div>
+
+<p><a href="https://en.wikipedia.org/wiki/Delta_robot">Delta robots</a> are often used for
+  factory "pick and place" operations.</p>
+  <p>Delta robot arms are not as precise as some other robot arm geometries,
+  but they can move fast and are easy to program.  The millimeter-level accuracy
+  is good enough for my project to move an end effector over weeds or crop plants.</p>
+  
+<p>I bought the delta robot arm from <a href="https://deltaxrobot.com">Delta-X</a>,
+  a Vietnamese company.  They shipped the robot from Da Nang, Vietnam to Hawaii.
+  When it arrived, I connect it to the bottom of the robot frame.
+</p>  
+
+<hr class="clearLeft" />
+  
+  <div class="imageContainer" class="floatLeft">
+<img src="imgs/DeltaAnimation.gif" width="437" height="367" /><div class="imageCaption" style="width:437 px;">Delta robot kinematics, © Wikimedia
+</div></div>
+<p>Delta robot kinematics (green arms are fixed length, at 90° to the blue axis that they rotate about)</p>
+<hr class="clearLeft" />
+  <div class="imageContainer" class="floatLeft">
+<video class=floatLeft width="640" controls><source src="video/Delta-G-Code-720.mp4" type="video/mp4" />Your browser does not support the video tab.
+</video>
+<div class="imageCaption" style="width:640px;">Testing the delta robot arm with G-code
+</div></div>
+  <p>The delta robot arm is programmed with
+  <a href="https://en.wikipedia.org/wiki/G-code">G-code</a>,
+  a simple language used for the control of many machine tools.
+  <p>
+<hr class="clearLeft" />
+  <p>I wrote a program to run on the Raspberry Pi computer and communicate with the
+  delta robot arm by sending G-Code commands over a serial port.  The program is listed below.</p>
+<hr class="clearLeft" />
+  <pre><code class="codeClass" >
+//
+//  delta.cpp
+//
+//  Serial interface for Delta-Robot.
+//
+
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;string.h&gt;
+#include &lt;stdarg.h&gt;
+#include &lt;math.h&gt;
+#include &lt;errno.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;termios.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;sys/ioctl.h&gt;
+#include &lt;sys/select.h&gt;
+#include "utils.cpp"
+#include "serial.cpp"
+
+static const char RobotPort[] = "/dev/cu.usbmodem144101";
+//static const char RobotPort[] = "/dev/tty.DeltaX-SerialPort";
+
+static SInt fd; // Device file descriptor
+
+static void
+sendLine(const char * const fmt, ...)
+  __attribute__ ((format(printf, 1, 2)));
+
+static void
+sendLine(const char *fmt, ...)  // Send a formated string to the robot
+{
+  char s[0x1000];
+  va_list args;
+  va_start(args, fmt);
+  vsprintf(s, fmt, args);
+  Write(fd, s, strlen(s));
+  Write(fd, "\n", 1);
+}
+
+static void
+clearSerial(void)  // Clear buffered data.
+{
+  while (true) {
+    SInt c = serialReadOneByte(fd, 1000000);    
+    if (c == -1) {
+      printf("serial empty\n");
+      break;
+    } else {
+      printf("%c", c);
+    }
+  }
+}
+
+static void
+gotoCommand(double x, double y, double z)
+{
+  double thirtyDegrees = 30*(M_PI/180.0);
+  double oneTwentyDegrees = 120*(M_PI/180.0);
+  double realX = x*cos(thirtyDegrees) + y*cos(oneTwentyDegrees);
+  double realY = x*sin(thirtyDegrees) + y*sin(oneTwentyDegrees);
+  sendLine("G01 X%f Y%f Z%f", realX, realY, z);
+  usleep(1000000);
+}
+
+static void
+arcCommand(double x, double y, double i, double j)
+{
+  double thirtyDegrees = 30*(M_PI/180.0);
+  double oneTwentyDegrees = 120*(M_PI/180.0);
+  double realX = x*cos(thirtyDegrees) + y*cos(oneTwentyDegrees);
+  double realY = x*sin(thirtyDegrees) + y*sin(oneTwentyDegrees);
+  double realI = i*cos(thirtyDegrees) + j*cos(oneTwentyDegrees);
+  double realJ = i*sin(thirtyDegrees) + j*sin(oneTwentyDegrees);
+  sendLine("G02 X%f Y%f I%f J%f", realX, realY, realI, realJ);
+}
+
+int
+main(void)
+{
+  fd = serialPortOpen(RobotPort);
+  clearSerial();
+  sendLine("IsDelta");
+  sendLine("IsDelta");
+  clearSerial();
+  sendLine("G28");
+  usleep(2000000);
+  double upH = -360;
+  double downH = -385;
+  gotoCommand(-20.0, 50.0, upH);
+  gotoCommand(-20.0, 50.0, downH);
+  gotoCommand(30.0, 50.0, downH);
+  gotoCommand(30.0, 50.0, upH);
+  gotoCommand(-20.0, -50.0, upH);
+  gotoCommand(-20.0, -50.0, downH);
+  gotoCommand(30.0, -50.0, downH);
+  gotoCommand(30.0, -50.0, upH);
+  gotoCommand(60.0, -70.0, downH);
+  arcCommand(60.0, 70.0, 0.0, 70.0);
+  for (;;) {
+    SInt c = serialReadOneByte(fd, 1000000);
+    if (c == -1) {
+      printf("serial empty\n");
+    } else {
+      printf("%d = %c\n", c, c);
+    }
+  }
+}
+</code></pre>
+<hr class="clearLeft" />
+  <pre><code class="codeClass" >
+//
+//  serial.cpp
+//
+
+static SInt
+serialPortOpen(const char *devicePath)
+{
+  int fd;
+  struct termios options;
+  fd = open(devicePath, O_RDWR | O_NOCTTY | O_NDELAY);
+  if (fd &lt; 0) {
+    fatal("Device \"%s\" cannot be opened: %s", devicePath, syserr());
+  }
+  fcntl(fd, F_SETFL, FNDELAY);       // Open the device in nonblocking mode
+  if (tcgetattr(fd, &options) &lt; 0) { // Get the current options of the port
+    fatal("tcgetattr failed: %s", syserr());
+  }
+  bzero(&options, sizeof(options));  // Clear all the options
+  cfsetispeed(&options, B115200);    // Set the baud rate at 115200 bauds
+  cfsetospeed(&options, B115200);
+  
+  options.c_cflag |= ( CLOCAL | // Ignore modem control lines
+                       CREAD  | // Enable receive
+                       CS8    | // 8 data, 1 stop, no parity, no flow control
+                       PARMRK); // Mark framing errors
+  
+  options.c_iflag |= ( IGNPAR | IGNBRK );
+  options.c_oflag = 0;
+  options.c_cc[VTIME]=0;    // Timer unused
+  options.c_cc[VMIN]=0;     // At least on character before satisfy reading
+  cfmakeraw(&options);
+  if (tcsetattr(fd, TCSANOW, &options) &lt; 0) {  // Activate the settings
+    fatal("tcsetattr failed, %s: %s", devicePath, syserr());
+  }
+  return fd;
+}
+
+static SInt
+serialReadOneByte(SInt fd, UInt usecs)
+{
+  if (! select1(usecs, fd)) {
+    return -1;  // Timeout
+  }
+  UInt8 c;
+  Read(fd, &c, 1);
+  return (SInt) c;
+}
+</code></pre>
+<hr class="clearLeft" />
+<img src="imgs/Under-Construction.jpg" />
+<hr class="clearLeft" />
+</div>
+</div>
+<script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
+</body>
+</html>

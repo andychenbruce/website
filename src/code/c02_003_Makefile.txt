@@ -1,0 +1,12 @@
+#
+# Makefile
+#
+  
+CC      := gcc
+CFLAGS  := -O3 -Wall -Wextra -Werror
+
+pwmLed: pwmLED.c
+        ${CC} ${CFLAGS} -o $@ $<
+
+clean:
+        rm -f pwmLed *~

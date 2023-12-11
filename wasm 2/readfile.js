@@ -1,0 +1,1 @@
+../../glfw/bb-slim/readfile.js

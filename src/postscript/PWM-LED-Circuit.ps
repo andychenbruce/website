@@ -1,0 +1,104 @@
+%
+%  PWM-Circuit.ps
+%
+
+/gs {gsave} def
+/gr {grestore} def
+
+/np {newpath} def
+/cp {closepath} def
+/m2 {moveto} def
+/l2 {lineto} def
+/r2 {rlineto} def
+/tr {translate} def
+/sk {stroke} def
+/slw {setlinewidth} def
+
+/dot {0 360 arc fill} def %% x y r circle
+
+/Helvetica-Bold findfont 12 scalefont setfont
+
+0.9 0.9 scale
+
+/Resistor {
+    gs
+    tr
+    np
+    0  0 m2
+    5  3 l2
+   -5  9 l2
+    5 15 l2
+   -5 21 l2
+    5 27 l2
+   -5 33 l2
+    0 36 l2
+    sk
+   -34  20 m2 (220) show
+   -40   8 m2 (ohms) show
+    gr
+} def
+
+/LED {
+    gs
+    tr
+    np
+    -10 0 m2
+    10  0 l2
+    0  14 l2
+    8  14 l2
+    8  17 l2
+    -8 17 l2
+    -8 14 l2
+    0 14 l2
+    cp
+    fill
+    /Helvetica-Bold findfont 10 scalefont setfont
+    -30 5 m2 (LED) show
+    gr
+} def
+
+0 0 0 setrgbcolor
+112 230 moveto (Ground) show
+110 245 5 dot
+110 245 m2
+201 245 l2
+201 174 l2
+sk
+np
+160 245 m2
+160 214 l2
+sk
+
+1 0 0 setrgbcolor
+116  124 moveto (Pin 32) show
+np
+110 135 5 dot
+110 135 m2
+160 135 l2
+160 150 l2
+sk
+160 150 Resistor
+np
+160 185 m2
+160 200 l2
+sk
+160 200 LED
+
+
+0 0 1 setrgbcolor
+116 98 moveto (Pin 33) show
+110  95 5 dot
+np
+110  95 m2
+
+201  95 l2
+201 110 l2
+sk
+201 110 Resistor
+np
+201 145 m2
+201 160 l2
+sk
+201 160 LED
+ 
+showpage
