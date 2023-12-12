@@ -20,28 +20,11 @@ console_error_panic_hook = "0.1.7"
 [dependencies.web-sys]
 version = "0.3.64"
 features = [
-	"console",
-	'Headers',
-	'Request',
-	'RequestInit',
-	'RequestMode',
-	'Response',
-	'Window',
-	'Document',
-	'Element',
-	'HtmlElement',
-	'Node',
-	'HtmlCollection',
-	"NamedNodeMap",
-	"Attr",
-	"HtmlFormElement",
-	"HtmlInputElement",
-	"FormData",
-	"CssStyleDeclaration",
-	"FileList",
-	"File",
-	"FileReader",
-	"Event",
-	"ReadableStream",
-	"ReadableStreamDefaultReader"
+  "console",
+  'Window',
+  'Document',
+  'Element',
+  'HtmlElement',
+  'HtmlCanvasElement',
+  'WebGlRenderingContext'
 ]
