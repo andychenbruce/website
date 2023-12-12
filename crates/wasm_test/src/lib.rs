@@ -84,7 +84,14 @@ fn make_program(
         {
             shader
         } else {
-            panic!("compile shader failed");
+            web_sys::console::error_1(
+                &context
+                    .get_shader_info_log(&shader)
+                    .unwrap()
+                    .as_str()
+                    .into(),
+            );
+            panic!("compiling shader failed")
         }
     }
 
