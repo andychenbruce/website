@@ -5,12 +5,7 @@ use andy_error::AndyError;
 
 use clap::Parser;
 
-use hyper::service::make_service_fn;
-use hyper::service::service_fn;
-use hyper::{Body, Request, Response, Server};
-use std::convert::Infallible;
 use std::io::Read;
-use std::net::SocketAddr;
 
 fn get_content_type(path: &std::path::Path) -> Result<&str, AndyError> {
     if let Some(ext) = path.extension() {
@@ -26,10 +21,10 @@ fn get_content_type(path: &std::path::Path) -> Result<&str, AndyError> {
     }
 }
 
-async fn handle(
-    req: Request<Body>,
+async fn andy_handle(
+    req: hyper::Request<hyper::body::Incoming>,
     path: std::sync::Arc<std::path::PathBuf>,
-) -> Result<Response<Body>, AndyError> {
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, AndyError> {
     let path_end = std::path::Path::new(&req.uri().path()[1..]);
     let path = path.as_path().join(path_end);
     let mut f = std::fs::File::open(path)?;
@@ -48,19 +43,26 @@ async fn handle(
 #[tokio::main]
 async fn main() -> Result<(), AndyError> {
     let args = args::AndyArgs::parse();
-    let addr = SocketAddr::from(([0, 0, 0, 0], args.port));
+    let addr = std::net::SocketAddr::from(([0, 0, 0, 0], args.port));
 
-    let path = std::sync::Arc::new(args.root_serve_path.clone());
-    let make_service = make_service_fn(move |_conn| {
-        let path = path.clone();
-        async move { Ok::<_, Infallible>(service_fn(move |body| handle(body, path.clone()))) }
-    });
+    let listener = tokio::net::TcpListener::bind(addr).await?;
 
-    let server = Server::bind(&addr).serve(make_service);
+    loop {
+        let (stream, _) = listener.accept().await?;
 
-    server.await?;
+        let io = hyper_util::rt::TokioIo::new(stream);
 
-    eprintln!("关了");
-
-    Ok(())
+        let path = std::sync::Arc::new(args.root_serve_path.clone());
+        tokio::task::spawn(async move {
+            if let Err(err) = hyper::server::conn::http1::Builder::new()
+                .serve_connection(
+                    io,
+                    hyper::service::service_fn(|x| andy_handle(x, path.clone())),
+                )
+                .await
+            {
+                eprintln!("Error serving connection: {:?}", err);
+            }
+        });
+    }
 }
