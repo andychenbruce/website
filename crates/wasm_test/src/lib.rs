@@ -68,32 +68,7 @@ fn make_program(
     vert_shader_code: &str,
     frag_shader_code: &str,
 ) -> web_sys::WebGlProgram {
-    fn make_shader(
-        context: &web_sys::WebGl2RenderingContext,
-        shader_type: u32,
-        source: &str,
-    ) -> web_sys::WebGlShader {
-        let shader = context.create_shader(shader_type).unwrap();
-
-        context.shader_source(&shader, source);
-        context.compile_shader(&shader);
-        if context
-            .get_shader_parameter(&shader, web_sys::WebGl2RenderingContext::COMPILE_STATUS)
-            .as_bool()
-            .unwrap()
-        {
-            shader
-        } else {
-            web_sys::console::error_1(
-                &context
-                    .get_shader_info_log(&shader)
-                    .unwrap()
-                    .as_str()
-                    .into(),
-            );
-            panic!("compiling shader failed")
-        }
-    }
+    
 
     let vert_shader = make_shader(
         context,
@@ -114,8 +89,36 @@ fn make_program(
     program
 }
 
+fn make_shader(
+    context: &web_sys::WebGl2RenderingContext,
+    shader_type: u32,
+    source: &str,
+) -> web_sys::WebGlShader {
+    let shader = context.create_shader(shader_type).unwrap();
+
+    context.shader_source(&shader, source);
+    context.compile_shader(&shader);
+    if context
+        .get_shader_parameter(&shader, web_sys::WebGl2RenderingContext::COMPILE_STATUS)
+        .as_bool()
+        .unwrap()
+        {
+            shader
+        } else {
+            web_sys::console::error_1(
+                &context
+                    .get_shader_info_log(&shader)
+                    .unwrap()
+                    .as_str()
+                    .into(),
+            );
+            panic!("compiling shader failed")
+        }
+}
+
 #[wasm_bindgen]
 pub fn set_panic_hook() {
     console_error_panic_hook::set_once();
     setup_canvas();
 }
+
