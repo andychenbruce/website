@@ -2,7 +2,6 @@
 
 precision highp float;
 
-
 in vec4 input_pos;
 
 out vec4 outColor;
