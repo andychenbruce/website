@@ -1,15 +1,23 @@
+mod icosahedron;
 use wasm_bindgen::prelude::*;
 
+const TRIANGLE_FRAGS: bool = true;
 const PHI: f32 = 1.618_034;
-const GOLDEN_RECTANGLE: &[f32] = &[
+const GOLDEN_RECTANGLE_VERTS: &[f32] = &[
     -1.0, PHI, 0.0, 1.0, PHI, 0.0, 1.0, -PHI, 0.0, -1.0, PHI, 0.0, -1.0, -PHI, 0.0, 1.0, -PHI, 0.0,
 ];
 
 #[repr(u32)]
+#[derive(Copy, Clone)]
+#[allow(dead_code)]
 enum FragEnum {
     Red = 0,
     Green = 1,
     Blue = 2,
+    Black = 3,
+    ClearRed = 4,
+    ClearGreen = 5,
+    ClearBlue = 6,
 }
 
 #[wasm_bindgen]
@@ -39,10 +47,15 @@ async fn setup_canvas() {
         .unwrap()
         .dyn_into()
         .unwrap();
-    context.clear_color(0.7, 0.7, 0.5, 1.0);
+    context.clear_color(0.0, 0.0, 0.0, 1.0);
     context.clear(web_sys::WebGl2RenderingContext::COLOR_BUFFER_BIT);
     context.enable(web_sys::WebGl2RenderingContext::DEPTH_TEST);
+    context.enable(web_sys::WebGl2RenderingContext::BLEND);
 
+    context.blend_func(
+        web_sys::WebGl2RenderingContext::SRC_ALPHA,
+        web_sys::WebGl2RenderingContext::ONE_MINUS_SRC_ALPHA,
+    );
     let vert_shader_source = include_str!("./shaders_source/vertex.glsl");
     let frag_shader_source = include_str!("./shaders_source/frag.glsl");
 
@@ -52,10 +65,18 @@ async fn setup_canvas() {
     let buffer = context.create_buffer().unwrap();
     context.bind_buffer(web_sys::WebGl2RenderingContext::ARRAY_BUFFER, Some(&buffer));
 
-    let positions_array_buf_view = unsafe { js_sys::Float32Array::view(GOLDEN_RECTANGLE) };
-    context.buffer_data_with_array_buffer_view(
+    let mut verts: Vec<f32> = GOLDEN_RECTANGLE_VERTS.to_vec();
+    let ico_verts = icosahedron::generate_verticies();
+    verts.extend(
+        ico_verts
+            .iter()
+            .flat_map(|t| t.iter().flat_map(|v| [v.x, v.y, v.z]).collect::<Vec<f32>>())
+            .collect::<Vec<f32>>(),
+    );
+
+    context.buffer_data_with_u8_array(
         web_sys::WebGl2RenderingContext::ARRAY_BUFFER,
-        &positions_array_buf_view,
+        &floats_as_bytes(&verts),
         web_sys::WebGl2RenderingContext::STATIC_DRAW,
     );
 
@@ -157,19 +178,21 @@ fn draw(globals: &mut Globals) {
     let rotated_2 = cgmath::Matrix4::from_axis_angle(
         normalize(cgmath::Vector3 {
             x: 1.0,
-            y: 1.0,
-            z: 0.0,
+            y: 0.0,
+            z: 1.0,
         }),
         cgmath::Rad(std::f32::consts::TAU / 2.0),
     ) * cgmath::Matrix4::from_axis_angle(
         normalize(cgmath::Vector3 {
-            x: 0.0,
-            y: 1.0,
+            x: -1.0,
+            y: 0.0,
             z: 0.0,
         }),
         cgmath::Rad(std::f32::consts::TAU / 4.0),
     );
     draw_rectangle(globals, forward_rotated * rotated_2, FragEnum::Blue);
+
+    draw_triangle(globals, forward_rotated, FragEnum::ClearBlue);
 }
 
 fn request_animation_frame(f: &Closure<dyn FnMut()>) -> i32 {
@@ -238,8 +261,10 @@ fn make_shader(
 
 fn matrix_to_vec(mat: cgmath::Matrix4<f32>) -> [f32; 16] {
     [
-        mat.x.x, mat.x.y, mat.x.z, mat.x.w, mat.y.x, mat.y.y, mat.y.z, mat.y.w, mat.z.x, mat.z.y,
-        mat.z.z, mat.z.w, mat.w.x, mat.w.y, mat.w.z, mat.w.w,
+        mat.x.x, mat.x.y, mat.x.z, mat.x.w, //x col
+        mat.y.x, mat.y.y, mat.y.z, mat.y.w, //y col
+        mat.z.x, mat.z.y, mat.z.z, mat.z.w, //z col
+        mat.w.x, mat.w.y, mat.w.z, mat.w.w, //w col
     ]
 }
 
@@ -257,14 +282,43 @@ fn draw_rectangle(globals: &Globals, model_mat: cgmath::Matrix4<f32>, frag_enum:
     globals
         .context
         .uniform1ui(Some(&globals.frag_enum_location), frag_enum as u32);
-    globals.context.draw_arrays(
-        web_sys::WebGl2RenderingContext::TRIANGLES,
-        0,
-        (GOLDEN_RECTANGLE.len() / 3) as i32,
+    globals
+        .context
+        .draw_arrays(web_sys::WebGl2RenderingContext::TRIANGLES, 0, 6);
+}
+fn draw_triangle(globals: &Globals, model_mat: cgmath::Matrix4<f32>, frag_enum: FragEnum) {
+    globals.context.uniform_matrix4fv_with_f32_array(
+        Some(&globals.model_matrix_location),
+        false,
+        &matrix_to_vec(model_mat),
     );
+    if TRIANGLE_FRAGS {
+        globals
+            .context
+            .uniform1ui(Some(&globals.frag_enum_location), frag_enum as u32);
+        globals
+            .context
+            .draw_arrays(web_sys::WebGl2RenderingContext::TRIANGLES, 6, 60);
+    }
+    for i in 0..20 {
+        globals
+            .context
+            .uniform1ui(Some(&globals.frag_enum_location), FragEnum::Black as u32);
+        globals
+            .context
+            .draw_arrays(web_sys::WebGl2RenderingContext::LINE_LOOP, 6 + (3 * i), 3);
+    }
 }
 
 #[wasm_bindgen]
 pub fn set_panic_hook() {
     console_error_panic_hook::set_once();
+}
+
+fn floats_as_bytes(floats: &[f32]) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(4 * floats.len());
+    for f in floats {
+        bytes.extend(f.to_le_bytes());
+    }
+    bytes
 }
