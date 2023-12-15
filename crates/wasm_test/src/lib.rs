@@ -47,7 +47,7 @@ async fn setup_canvas() {
         .unwrap()
         .dyn_into()
         .unwrap();
-    context.clear_color(0.0, 0.0, 0.0, 1.0);
+    context.clear_color(0.8, 0.6, 0.0, 1.0);
     context.clear(web_sys::WebGl2RenderingContext::COLOR_BUFFER_BIT);
     context.enable(web_sys::WebGl2RenderingContext::DEPTH_TEST);
     context.enable(web_sys::WebGl2RenderingContext::BLEND);
@@ -66,7 +66,7 @@ async fn setup_canvas() {
     context.bind_buffer(web_sys::WebGl2RenderingContext::ARRAY_BUFFER, Some(&buffer));
 
     let mut verts: Vec<f32> = GOLDEN_RECTANGLE_VERTS.to_vec();
-    let ico_verts = icosahedron::generate_verticies();
+    let ico_verts = icosahedron::sphere_recurse_verts(icosahedron::generate_verticies());
     verts.extend(
         ico_verts
             .iter()
@@ -192,7 +192,8 @@ fn draw(globals: &mut Globals) {
     );
     draw_rectangle(globals, forward_rotated * rotated_2, FragEnum::Blue);
 
-    draw_triangle(globals, forward_rotated, FragEnum::ClearBlue);
+    let bigger = cgmath::Matrix4::from_scale(((PHI * PHI) + (1.0 * 1.0)).sqrt());
+    draw_triangle(globals, forward_rotated * bigger, FragEnum::ClearBlue);
 }
 
 fn request_animation_frame(f: &Closure<dyn FnMut()>) -> i32 {
@@ -298,9 +299,9 @@ fn draw_triangle(globals: &Globals, model_mat: cgmath::Matrix4<f32>, frag_enum: 
             .uniform1ui(Some(&globals.frag_enum_location), frag_enum as u32);
         globals
             .context
-            .draw_arrays(web_sys::WebGl2RenderingContext::TRIANGLES, 6, 60);
+            .draw_arrays(web_sys::WebGl2RenderingContext::TRIANGLES, 6, 240);
     }
-    for i in 0..20 {
+    for i in 0..80 {
         globals
             .context
             .uniform1ui(Some(&globals.frag_enum_location), FragEnum::Black as u32);

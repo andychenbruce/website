@@ -1,6 +1,7 @@
 use crate::normalize;
 use crate::PHI;
 use cgmath::SquareMatrix;
+use cgmath::Zero;
 pub fn generate_verticies() -> Vec<[cgmath::Vector4<f32>; 3]> {
     let rotated_1 = cgmath::Matrix4::from_axis_angle(
         normalize(cgmath::Vector3 {
@@ -82,4 +83,57 @@ pub fn generate_verticies() -> Vec<[cgmath::Vector4<f32>; 3]> {
     assert!(verts.len() == 20);
 
     verts
+}
+
+pub fn sphere_recurse_verts(
+    triangles: Vec<[cgmath::Vector4<f32>; 3]>,
+) -> Vec<[cgmath::Vector4<f32>; 3]> {
+    let poo: Vec<_> = triangles
+        .into_iter()
+        .flat_map(|triangle| {
+            let splits: [cgmath::Vector4<f32>; 3] = (0..3)
+                .map(|num| {
+                    normalize_vec(
+                        triangle
+                            .into_iter()
+                            .enumerate()
+                            .map(|(n, x)| {
+                                if n == num {
+                                    cgmath::Vector4::<f32>::zero()
+                                } else {
+                                    x
+                                }
+                            })
+                            .sum::<cgmath::Vector4<f32>>()
+                            / 2.0,
+                    )
+                })
+                .collect::<Vec<cgmath::Vector4<f32>>>()
+                .try_into()
+                .unwrap();
+
+            let mut new_triangles: Vec<[cgmath::Vector4<f32>; 3]> = (0..3)
+                .map(|num| {
+                    let mut t = Vec::with_capacity(3);
+                    for (n, x) in splits.iter().enumerate() {
+                        if n != num {
+                            t.push(*x);
+                        }
+                    }
+                    t.push(normalize_vec(triangle[num]));
+                    t.try_into().unwrap()
+                })
+                .collect();
+            new_triangles.push(splits);
+            let out: [[cgmath::Vector4<f32>; 3]; 4] = new_triangles.try_into().unwrap();
+            out
+        })
+        .collect();
+
+    assert!(poo.len() == 80);
+    poo
+}
+
+fn normalize_vec(v: cgmath::Vector4<f32>) -> cgmath::Vector4<f32> {
+    v / ((v.x * v.x) + (v.y * v.y) + (v.z * v.z)).sqrt()
 }
