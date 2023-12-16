@@ -25,11 +25,11 @@ void main() {
   }else if(fragEnum == ENUM_BLACK){
     outColor = vec4(0.0, 0.0, 0.0, 1.0);
   }else if(fragEnum == ENUM_CLEAR_RED){
-    outColor = vec4(1.0, 0.0, 0.0, 0.5);
+    outColor = vec4(0.5, 0.0, 0.0, 0.5);
   }else if(fragEnum == ENUM_CLEAR_GREEN){
-    outColor = vec4(0.0, 1.0, 0.0, 0.5);
+    outColor = vec4(0.0, 0.5, 0.0, 0.5);
   }else if(fragEnum == ENUM_CLEAR_BLUE){
-    outColor = vec4(0.0, 0.0, 1.0, 0.5);
+    outColor = vec4(0.0, 0.0, 0.5, 0.5);
   }else{
     outColor = input_pos;
   }

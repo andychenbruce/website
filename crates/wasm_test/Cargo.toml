@@ -28,5 +28,8 @@ features = [
   'WebGlShader',
   'WebGlProgram',
   'WebGlVertexArrayObject',
-  'WebGlUniformLocation'
+  'WebGlUniformLocation',
+  'EventListener',
+  'Event',
+  'MouseEvent'
 ]

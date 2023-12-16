@@ -130,7 +130,6 @@ pub fn sphere_recurse_verts(
         })
         .collect();
 
-    assert!(poo.len() == 80);
     poo
 }
 
