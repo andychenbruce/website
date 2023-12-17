@@ -21,12 +21,6 @@ enum FragEnum {
     ClearBlue = 6,
 }
 
-#[wasm_bindgen]
-pub async fn andy_main() -> Result<(), JsValue> {
-    setup_canvas().await;
-    Ok(())
-}
-
 struct MouseState {
     mouse_down: bool,
     mouse_drag_pos_prev: Option<(i32, i32)>,
@@ -43,64 +37,17 @@ struct Globals {
     camera_matrix: std::sync::Arc<std::sync::Mutex<cgmath::Matrix4<f32>>>,
 }
 
-async fn setup_canvas() {
-    let canvas = web_sys::window()
-        .unwrap()
-        .document()
-        .unwrap()
-        .get_element_by_id("big_canvas")
-        .unwrap()
-        .dyn_into::<web_sys::HtmlCanvasElement>()
-        .unwrap();
-
-    let context: web_sys::WebGl2RenderingContext = canvas
-        .get_context("webgl2")
-        .unwrap()
-        .unwrap()
-        .dyn_into()
-        .unwrap();
-    context.clear_color(0.3, 0.7, 0.8, 1.0);
-    context.clear(web_sys::WebGl2RenderingContext::COLOR_BUFFER_BIT);
-    context.enable(web_sys::WebGl2RenderingContext::DEPTH_TEST);
-    context.enable(web_sys::WebGl2RenderingContext::BLEND);
-
-    context.blend_func(
-        web_sys::WebGl2RenderingContext::SRC_ALPHA,
-        web_sys::WebGl2RenderingContext::ONE_MINUS_SRC_ALPHA,
-    );
-    let vert_shader_source = include_str!("./shaders_source/vertex.glsl");
-    let frag_shader_source = include_str!("./shaders_source/frag.glsl");
-
-    let program = make_program(&context, vert_shader_source, frag_shader_source);
-    context.use_program(Some(&program));
-
-    let buffer = context.create_buffer().unwrap();
-    context.bind_buffer(web_sys::WebGl2RenderingContext::ARRAY_BUFFER, Some(&buffer));
-
-    let mut verts: Vec<f32> = GOLDEN_RECTANGLE_VERTS.to_vec();
-    let ico_verts = icosahedron::sphere_recurse_verts(icosahedron::sphere_recurse_verts(
-        icosahedron::generate_verticies(),
-    ));
-    verts.extend(
-        ico_verts
-            .iter()
-            .flat_map(|t| t.iter().flat_map(|v| [v.x, v.y, v.z]).collect::<Vec<f32>>())
-            .collect::<Vec<f32>>(),
-    );
-
-    context.buffer_data_with_u8_array(
-        web_sys::WebGl2RenderingContext::ARRAY_BUFFER,
-        &floats_as_bytes(&verts),
-        web_sys::WebGl2RenderingContext::STATIC_DRAW,
-    );
-
+fn make_globals(
+    context: web_sys::WebGl2RenderingContext,
+    program: web_sys::WebGlProgram,
+) -> Globals {
+    let camera_matrix = std::sync::Arc::new(std::sync::Mutex::new(cgmath::Matrix4::identity()));
     let perspective_matrix: cgmath::Matrix4<f32> = cgmath::Matrix4::from(cgmath::PerspectiveFov {
         fovy: cgmath::Rad(2.0),
         aspect: 1.0,
         near: 0.001,
         far: 10.0,
     });
-
     let perspective_matrix_location = context
         .get_uniform_location(&program, "perspectiveMatrix")
         .unwrap();
@@ -113,6 +60,47 @@ async fn setup_canvas() {
         .get_uniform_location(&program, "modelMatrix")
         .unwrap();
     let frag_enum_location = context.get_uniform_location(&program, "fragEnum").unwrap();
+    let mouse = std::sync::Arc::new(std::sync::Mutex::new(MouseState {
+        mouse_down: false,
+        mouse_drag_pos_prev: None,
+        mouse_drag_pos: None,
+    }));
+    Globals {
+        context,
+        last_tick_time: std::sync::Arc::new(std::sync::Mutex::new(0)),
+        model_matrix_location,
+        frag_enum_location,
+        mouse,
+        camera_matrix,
+    }
+}
+#[wasm_bindgen]
+pub async fn andy_main() {
+    let mut verts: Vec<f32> = GOLDEN_RECTANGLE_VERTS.to_vec();
+    let ico_verts = icosahedron::sphere_recurse_verts(icosahedron::sphere_recurse_verts(
+        icosahedron::generate_verticies(),
+    ));
+    verts.extend(
+        ico_verts
+            .iter()
+            .flat_map(|t| t.iter().flat_map(|v| [v.x, v.y, v.z]).collect::<Vec<f32>>())
+            .collect::<Vec<f32>>(),
+    );
+
+    let (context, program) = andys_webgl_main::setup_canvas(
+        "big_canvas",
+        andys_webgl_main::ShaderProg {
+            vert_shader_source: include_str!("./shaders_source/vertex.glsl"),
+            frag_shader_source: include_str!("./shaders_source/frag.glsl"),
+            verts: &verts,
+            vertex_attrib_name: "position",
+            draw_func: draw,
+        },
+        Some(andy_mousedown_callback),
+        Some(andy_mouseup_callback),
+        Some(andy_mousemove_callback),
+        make_globals,
+    );
 
     let vao = context.create_vertex_array().unwrap();
     context.bind_vertex_array(Some(&vao));
@@ -128,31 +116,28 @@ async fn setup_canvas() {
     );
 
     context.enable_vertex_attrib_array(position_attrib as u32);
-
-    let globals = Globals {
-        last_tick_time: std::sync::Arc::new(std::sync::Mutex::new(0)),
-        context,
-        model_matrix_location,
-        frag_enum_location,
-        mouse: std::sync::Arc::new(std::sync::Mutex::new(MouseState {
-            mouse_down: false,
-            mouse_drag_pos_prev: None,
-            mouse_drag_pos: None,
-        })),
-        camera_matrix: std::sync::Arc::new(std::sync::Mutex::new(cgmath::Matrix4::identity())),
-    };
-
-    setup_callbacks(canvas, globals.clone());
 }
 
-fn setup_callbacks(canvas: web_sys::HtmlCanvasElement, globals: Globals) {
-    let globals0 = globals.clone();
-    let andy_mousedown_callback = Closure::wrap(Box::new(move |_e: web_sys::Event| {
-        let mut mouse = globals0.mouse.lock().unwrap();
-        mouse.mouse_drag_pos_prev = None;
-        mouse.mouse_drag_pos = None;
-        mouse.mouse_down = true;
-    }) as Box<dyn FnMut(_)>);
+fn andy_mousedown_callback(globals: Globals, _e: web_sys::Event) {
+    let mut mouse = globals.mouse.lock().unwrap();
+    mouse.mouse_drag_pos_prev = None;
+    mouse.mouse_drag_pos = None;
+    mouse.mouse_down = true;
+}
+fn andy_mouseup_callback(globals: Globals, _e: web_sys::Event) {
+    globals.mouse.lock().unwrap().mouse_down = false;
+}
+fn andy_mousemove_callback(globals: Globals, e: web_sys::Event) {
+    let mouse_event: web_sys::MouseEvent = e.dyn_into().unwrap();
+    let mut mouse_state = globals.mouse.lock().unwrap();
+    if mouse_state.mouse_down {
+        mouse_state.mouse_drag_pos_prev = mouse_state.mouse_drag_pos;
+        mouse_state.mouse_drag_pos = Some((mouse_event.x(), mouse_event.y()));
+    }
+}
+
+/*
+fn poo(){
     canvas
         .add_event_listener_with_callback(
             "mousedown",
@@ -174,14 +159,14 @@ fn setup_callbacks(canvas: web_sys::HtmlCanvasElement, globals: Globals) {
     std::mem::forget(andy_mouseup_callback);
 
     let globals2 = globals.clone();
-    let andy_mousemove_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
+    let andy_mousemove_callback = |e: web_sys::Event| {
         let mouse_event: web_sys::MouseEvent = e.dyn_into().unwrap();
-        let mut mouse_state = globals2.mouse.lock().unwrap();
+        let mut mouse_state = mouse.lock().unwrap();
         if mouse_state.mouse_down {
             mouse_state.mouse_drag_pos_prev = mouse_state.mouse_drag_pos;
             mouse_state.mouse_drag_pos = Some((mouse_event.x(), mouse_event.y()));
         }
-    }) as Box<dyn FnMut(_)>);
+    };
     canvas
         .add_event_listener_with_callback(
             "mousemove",
@@ -189,19 +174,8 @@ fn setup_callbacks(canvas: web_sys::HtmlCanvasElement, globals: Globals) {
         )
         .unwrap();
     std::mem::forget(andy_mousemove_callback);
-
-    //draw loop
-    let f = std::rc::Rc::new(std::cell::RefCell::new(None));
-    let g = f.clone();
-
-    *g.borrow_mut() = Some(Closure::wrap(Box::new(move || {
-        draw(globals.clone());
-        request_animation_frame(f.borrow().as_ref().unwrap());
-    }) as Box<dyn FnMut()>));
-
-    request_animation_frame(g.borrow().as_ref().unwrap());
 }
-
+*/
 fn draw(globals: Globals) {
     globals
         .context
@@ -292,70 +266,6 @@ fn draw(globals: Globals) {
     draw_triangle(&globals, forward_rotated * bigger, FragEnum::ClearRed);
 }
 
-fn request_animation_frame(f: &Closure<dyn FnMut()>) -> i32 {
-    web_sys::window()
-        .unwrap()
-        .request_animation_frame(f.as_ref().dyn_ref().unwrap())
-        .unwrap()
-}
-
-fn make_program(
-    context: &web_sys::WebGl2RenderingContext,
-    vert_shader_code: &str,
-    frag_shader_code: &str,
-) -> web_sys::WebGlProgram {
-    let vert_shader = make_shader(
-        context,
-        web_sys::WebGl2RenderingContext::VERTEX_SHADER,
-        vert_shader_code,
-    );
-
-    let frag_shader = make_shader(
-        context,
-        web_sys::WebGl2RenderingContext::FRAGMENT_SHADER,
-        frag_shader_code,
-    );
-
-    let program = context.create_program().unwrap();
-    context.attach_shader(&program, &vert_shader);
-    context.attach_shader(&program, &frag_shader);
-    context.link_program(&program);
-    program
-}
-
-fn make_shader(
-    context: &web_sys::WebGl2RenderingContext,
-    shader_type: u32,
-    source: &str,
-) -> web_sys::WebGlShader {
-    let shader = context.create_shader(shader_type).unwrap();
-
-    context.shader_source(&shader, source);
-    context.compile_shader(&shader);
-
-    let shader_log = context.get_shader_info_log(&shader).unwrap();
-
-    if !shader_log.is_empty() {
-        web_sys::console::warn_1(&format!("shader compilation has errors: {}", shader_log).into());
-    }
-    if context
-        .get_shader_parameter(&shader, web_sys::WebGl2RenderingContext::COMPILE_STATUS)
-        .as_bool()
-        .unwrap()
-    {
-        shader
-    } else {
-        web_sys::console::error_1(
-            &context
-                .get_shader_info_log(&shader)
-                .unwrap()
-                .as_str()
-                .into(),
-        );
-        panic!("compiling shader failed")
-    }
-}
-
 fn matrix_to_vec(mat: cgmath::Matrix4<f32>) -> [f32; 16] {
     [
         mat.x.x, mat.x.y, mat.x.z, mat.x.w, //x col
@@ -409,17 +319,4 @@ fn draw_triangle(globals: &Globals, model_mat: cgmath::Matrix4<f32>, frag_enum: 
             .context
             .draw_arrays(web_sys::WebGl2RenderingContext::LINE_LOOP, 6 + (3 * i), 3);
     }
-}
-
-#[wasm_bindgen]
-pub fn set_panic_hook() {
-    console_error_panic_hook::set_once();
-}
-
-fn floats_as_bytes(floats: &[f32]) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(4 * floats.len());
-    for f in floats {
-        bytes.extend(f.to_le_bytes());
-    }
-    bytes
 }
