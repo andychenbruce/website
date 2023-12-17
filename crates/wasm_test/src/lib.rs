@@ -48,7 +48,7 @@ async fn setup_canvas() {
         .unwrap()
         .document()
         .unwrap()
-        .get_element_by_id("my_canvas")
+        .get_element_by_id("big_canvas")
         .unwrap()
         .dyn_into::<web_sys::HtmlCanvasElement>()
         .unwrap();
@@ -59,7 +59,7 @@ async fn setup_canvas() {
         .unwrap()
         .dyn_into()
         .unwrap();
-    context.clear_color(0.0, 0.0, 0.0, 1.0);
+    context.clear_color(0.3, 0.7, 0.8, 1.0);
     context.clear(web_sys::WebGl2RenderingContext::COLOR_BUFFER_BIT);
     context.enable(web_sys::WebGl2RenderingContext::DEPTH_TEST);
     context.enable(web_sys::WebGl2RenderingContext::BLEND);
@@ -248,7 +248,7 @@ fn draw(globals: Globals) {
 
     let forward_rotated = cgmath::Matrix4::from_translation(cgmath::Vector3 {
         x: 0.0,
-        y: -0.5,
+        y: 0.0,
         z: -3.0,
     }) * *globals.camera_matrix.lock().unwrap();
 
