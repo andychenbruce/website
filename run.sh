@@ -2,7 +2,7 @@
 set -e
 
 ROOT_DIR="root_server"
-WASM_DIR=$ROOT_DIR"/wasm"
+WASM_DIR=$ROOT_DIR"/andy_wasm"
 
 cargo build --package "icosahedron" --target "wasm32-unknown-unknown"
 rm -fr $WASM_DIR
