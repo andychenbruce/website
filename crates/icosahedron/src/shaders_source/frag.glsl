@@ -27,47 +27,48 @@ float DIFFUSE_BRIGHTNESS = 0.6;
 vec3 getBeachBallColor(){
   vec3 mpos = normalize(vec3(inputPos));
   float x = mpos.x;
-  float z = mpos.z;
-  float r = x*x + z*z;
+  float y = mpos.y;
+  float r = x*x + y*y;
   if (r < 0.03) {
-    return vec3(1, 1, 0); // Yellow
+    return vec3(1, 1, 0);
   }
   float c2 = x*x/r;
   if (c2 < 0.75) {
     if (x > 0.0) {
-      if (z > 0.0) {
-	return vec3(0, 1, 0); // Green;
+      if (y > 0.0) {
+	return vec3(0, 1, 0);
       } else {
-	return vec3(0, 0, 1); // Blue
+	return vec3(0, 0, 1);
       }
     } else {
-      return vec3(1, 1, 1); // White
+      return vec3(1, 1, 1);
     }
   } else {
     if (x > 0.0) {
-      return vec3(1, 1, 1); // White
+      return vec3(1, 1, 1);
     } else {
-      return vec3(1, 0, 0); // Red
+      return vec3(1, 0, 0);
     }
-  }    return vec3(1.0, 0.0, 0.0);
+  }
+  return vec3(1.0, 0.0, 0.0);
 }
 
 float diffuse_reflect_factor(){
-    vec3 dir = vec3(lightPos) - vec3(inputPos);
-    float cosine = dot(normalize(dir), normalize(vec3(inputPos)));
-    float cf = clamp((AMBIENT_BRIGHTNESS * cosine) + DIFFUSE_BRIGHTNESS, 0.0, 1.0);
-    return cf;
+  vec3 dir = vec3(lightPos) - vec3(inputPos);
+  float cosine = dot(normalize(dir), normalize(vec3(inputPos)));
+  float cf = clamp((AMBIENT_BRIGHTNESS * cosine) + DIFFUSE_BRIGHTNESS, 0.0, 1.0);
+  return cf;
 }
 
 float specular_reflect_factor(){
-    vec3 camera_pos = vec3(inverse(cameraMatrix) * vec4(0.0, 0.0, 0.0, 1.0));
-    vec3 incident = -(camera_pos - vec3(inputPos));
-    vec3 optimal_dir = normalize(reflect(incident, normalize(vec3(inputPos))));
-    vec3 light_dir = normalize(lightPos - vec3(inputPos));
-    float cos = dot(optimal_dir, light_dir);
-    float shinyness = 5.0;
-    float factor = pow(clamp(cos, 0.0, 1.0), shinyness);
-    return factor;
+  vec3 camera_pos = vec3(inverse(cameraMatrix) * vec4(0.0, 0.0, 0.0, 1.0));
+  vec3 incident = -(camera_pos - vec3(inputPos));
+  vec3 optimal_dir = normalize(reflect(incident, normalize(vec3(inputPos))));
+  vec3 light_dir = normalize(lightPos - vec3(inputPos));
+  float cos = dot(optimal_dir, light_dir);
+  float shinyness = 5.0;
+  float factor = pow(clamp(cos, 0.0, 1.0), shinyness);
+  return factor;
 }
 
 void main() {

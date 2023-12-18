@@ -112,7 +112,7 @@ fn make_globals(
 }
 #[wasm_bindgen]
 pub fn andy_main() {
-    set_canvas("big_canvas", 0, true, true, false, FragLevel::Transparent);
+    set_canvas("big_canvas", 3, false, false, true, FragLevel::BeachBall);
     set_canvas("small_canvas0", 0, true, false, false, FragLevel::None);
     set_canvas("small_canvas1", 0, true, true, false, FragLevel::None);
     set_canvas(
