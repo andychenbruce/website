@@ -39,7 +39,7 @@ where
         .unwrap()
         .dyn_into()
         .unwrap();
-    context.clear_color(0.3, 0.7, 0.8, 1.0);
+    context.clear_color(0.2, 0.4, 0.5, 1.0);
     context.clear(web_sys::WebGl2RenderingContext::COLOR_BUFFER_BIT);
     context.enable(web_sys::WebGl2RenderingContext::DEPTH_TEST);
     context.enable(web_sys::WebGl2RenderingContext::BLEND);

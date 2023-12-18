@@ -80,9 +80,20 @@ pub fn generate_verticies() -> Vec<[cgmath::Vector4<f32>; 3]> {
         }
     }
 
-    assert!(verts.len() == 20);
+    let out: Vec<[cgmath::Vector4<f32>; 3]> = verts
+        .into_iter()
+        .map(|x| {
+            x.into_iter()
+                .map(normalize_vec)
+                .collect::<Vec<cgmath::Vector4<f32>>>()
+                .try_into()
+                .unwrap()
+        })
+        .collect();
 
-    verts
+    assert!(out.len() == 20);
+
+    out
 }
 
 pub fn sphere_recurse_verts(

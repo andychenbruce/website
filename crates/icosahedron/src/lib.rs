@@ -27,6 +27,22 @@ struct MouseState {
     mouse_drag_pos: Option<(i32, i32)>,
 }
 
+#[derive(Copy, Clone)]
+enum FragLevel {
+    None,
+    Transparent,
+    Full,
+    //BeachBall,
+    //Refractive
+}
+
+struct DrawConfig {
+    rectangles: bool,
+    wires: bool,
+    frags: FragLevel,
+    num_triangles: i32,
+}
+
 #[derive(Clone)]
 struct Globals {
     last_tick_time: std::sync::Arc<std::sync::Mutex<u64>>,
@@ -62,8 +78,8 @@ fn make_globals(
     let frag_enum_location = context.get_uniform_location(&program, "fragEnum").unwrap();
     let mouse = std::sync::Arc::new(std::sync::Mutex::new(MouseState {
         mouse_down: false,
-        mouse_drag_pos_prev: None,
-        mouse_drag_pos: None,
+        mouse_drag_pos_prev: Some((0, 0)),
+        mouse_drag_pos: Some((2, 1)),
     }));
     Globals {
         context,
@@ -75,47 +91,54 @@ fn make_globals(
     }
 }
 #[wasm_bindgen]
-pub async fn andy_main() {
+pub fn andy_main() {
+    set_canvas("big_canvas", 0, true, true, FragLevel::Transparent);
+    set_canvas("small_canvas0", 0, true, false, FragLevel::None);
+    set_canvas("small_canvas1", 0, true, true, FragLevel::None);
+    set_canvas("small_canvas2", 0, true, true, FragLevel::Transparent);
+    set_canvas("small_canvas3", 1, true, true, FragLevel::Transparent);
+    set_canvas("small_canvas4", 2, true, true, FragLevel::Transparent);
+    set_canvas("small_canvas5", 3, true, true, FragLevel::Transparent);
+    set_canvas("small_canvas6", 3, false, true, FragLevel::Full);
+}
+
+fn set_canvas(name: &str, iters: u32, rectangles: bool, wires: bool, frags: FragLevel) {
     let mut verts: Vec<f32> = GOLDEN_RECTANGLE_VERTS.to_vec();
-    let ico_verts = icosahedron::sphere_recurse_verts(icosahedron::sphere_recurse_verts(
-        icosahedron::generate_verticies(),
-    ));
+    let mut ico_verts = icosahedron::generate_verticies();
+    for _ in 0..iters {
+        ico_verts = icosahedron::sphere_recurse_verts(ico_verts);
+    }
+
     verts.extend(
         ico_verts
             .iter()
             .flat_map(|t| t.iter().flat_map(|v| [v.x, v.y, v.z]).collect::<Vec<f32>>())
             .collect::<Vec<f32>>(),
     );
-
-    let (context, program) = andys_webgl_main::setup_canvas(
-        "big_canvas",
+    let (_context, _program) = andys_webgl_main::setup_canvas(
+        name,
         andys_webgl_main::ShaderProg {
             vert_shader_source: include_str!("./shaders_source/vertex.glsl"),
             frag_shader_source: include_str!("./shaders_source/frag.glsl"),
             verts: &verts,
             vertex_attrib_name: "position",
-            draw_func: draw,
+            draw_func: move |globals: Globals| {
+                draw(
+                    globals,
+                    DrawConfig {
+                        rectangles,
+                        wires,
+                        frags,
+                        num_triangles: 20 * (4_i32.pow(iters)),
+                    },
+                )
+            },
         },
         Some(andy_mousedown_callback),
         Some(andy_mouseup_callback),
         Some(andy_mousemove_callback),
         make_globals,
     );
-
-    let vao = context.create_vertex_array().unwrap();
-    context.bind_vertex_array(Some(&vao));
-
-    let position_attrib = context.get_attrib_location(&program, "position");
-    context.vertex_attrib_pointer_with_i32(
-        position_attrib as u32,
-        3,
-        web_sys::WebGl2RenderingContext::FLOAT,
-        false,
-        0,
-        0,
-    );
-
-    context.enable_vertex_attrib_array(position_attrib as u32);
 }
 
 fn andy_mousedown_callback(globals: Globals, _e: web_sys::Event) {
@@ -136,47 +159,7 @@ fn andy_mousemove_callback(globals: Globals, e: web_sys::Event) {
     }
 }
 
-/*
-fn poo(){
-    canvas
-        .add_event_listener_with_callback(
-            "mousedown",
-            andy_mousedown_callback.as_ref().dyn_ref().unwrap(),
-        )
-        .unwrap();
-    std::mem::forget(andy_mousedown_callback);
-
-    let globals1 = globals.clone();
-    let andy_mouseup_callback = Closure::wrap(Box::new(move |_e: web_sys::Event| {
-        globals1.mouse.lock().unwrap().mouse_down = false;
-    }) as Box<dyn FnMut(_)>);
-    canvas
-        .add_event_listener_with_callback(
-            "mouseup",
-            andy_mouseup_callback.as_ref().dyn_ref().unwrap(),
-        )
-        .unwrap();
-    std::mem::forget(andy_mouseup_callback);
-
-    let globals2 = globals.clone();
-    let andy_mousemove_callback = |e: web_sys::Event| {
-        let mouse_event: web_sys::MouseEvent = e.dyn_into().unwrap();
-        let mut mouse_state = mouse.lock().unwrap();
-        if mouse_state.mouse_down {
-            mouse_state.mouse_drag_pos_prev = mouse_state.mouse_drag_pos;
-            mouse_state.mouse_drag_pos = Some((mouse_event.x(), mouse_event.y()));
-        }
-    };
-    canvas
-        .add_event_listener_with_callback(
-            "mousemove",
-            andy_mousemove_callback.as_ref().dyn_ref().unwrap(),
-        )
-        .unwrap();
-    std::mem::forget(andy_mousemove_callback);
-}
-*/
-fn draw(globals: Globals) {
+fn draw(globals: Globals, config: DrawConfig) {
     globals
         .context
         .clear(web_sys::WebGl2RenderingContext::COLOR_BUFFER_BIT);
@@ -226,44 +209,57 @@ fn draw(globals: Globals) {
         z: -3.0,
     }) * *globals.camera_matrix.lock().unwrap();
 
-    draw_rectangle(&globals, forward_rotated, FragEnum::Red);
-    let rotated_1 = cgmath::Matrix4::from_axis_angle(
-        normalize(cgmath::Vector3 {
-            x: 1.0,
-            y: 0.0,
-            z: 1.0,
-        }),
-        cgmath::Rad(std::f32::consts::TAU / 2.0),
-    ) * cgmath::Matrix4::from_axis_angle(
-        normalize(cgmath::Vector3 {
-            x: 0.0,
-            y: 0.0,
-            z: 1.0,
-        }),
-        cgmath::Rad(std::f32::consts::TAU / 4.0),
-    );
-    draw_rectangle(&globals, forward_rotated * rotated_1, FragEnum::Green);
+    if config.rectangles {
+        draw_rectangle(&globals, forward_rotated, FragEnum::Red);
+        let rotated_1 = cgmath::Matrix4::from_axis_angle(
+            normalize(cgmath::Vector3 {
+                x: 1.0,
+                y: 0.0,
+                z: 1.0,
+            }),
+            cgmath::Rad(std::f32::consts::TAU / 2.0),
+        ) * cgmath::Matrix4::from_axis_angle(
+            normalize(cgmath::Vector3 {
+                x: 0.0,
+                y: 0.0,
+                z: 1.0,
+            }),
+            cgmath::Rad(std::f32::consts::TAU / 4.0),
+        );
+        draw_rectangle(&globals, forward_rotated * rotated_1, FragEnum::Green);
 
-    draw_rectangle(&globals, forward_rotated, FragEnum::Red);
-    let rotated_2 = cgmath::Matrix4::from_axis_angle(
-        normalize(cgmath::Vector3 {
-            x: 1.0,
-            y: 0.0,
-            z: 1.0,
-        }),
-        cgmath::Rad(std::f32::consts::TAU / 2.0),
-    ) * cgmath::Matrix4::from_axis_angle(
-        normalize(cgmath::Vector3 {
-            x: -1.0,
-            y: 0.0,
-            z: 0.0,
-        }),
-        cgmath::Rad(std::f32::consts::TAU / 4.0),
-    );
-    draw_rectangle(&globals, forward_rotated * rotated_2, FragEnum::Blue);
+        draw_rectangle(&globals, forward_rotated, FragEnum::Red);
+        let rotated_2 = cgmath::Matrix4::from_axis_angle(
+            normalize(cgmath::Vector3 {
+                x: 1.0,
+                y: 0.0,
+                z: 1.0,
+            }),
+            cgmath::Rad(std::f32::consts::TAU / 2.0),
+        ) * cgmath::Matrix4::from_axis_angle(
+            normalize(cgmath::Vector3 {
+                x: -1.0,
+                y: 0.0,
+                z: 0.0,
+            }),
+            cgmath::Rad(std::f32::consts::TAU / 4.0),
+        );
+        draw_rectangle(&globals, forward_rotated * rotated_2, FragEnum::Blue);
+    }
 
     let bigger = cgmath::Matrix4::from_scale(((PHI * PHI) + (1.0 * 1.0)).sqrt());
-    draw_triangle(&globals, forward_rotated * bigger, FragEnum::ClearRed);
+    draw_triangles_frags(
+        &globals,
+        forward_rotated * bigger,
+        match config.frags {
+            FragLevel::Transparent => Some(FragEnum::ClearRed),
+            FragLevel::None => None,
+            FragLevel::Full => Some(FragEnum::Red),
+        },
+        6,
+        config.num_triangles,
+        config.wires,
+    );
 }
 
 fn matrix_to_vec(mat: cgmath::Matrix4<f32>) -> [f32; 16] {
@@ -297,26 +293,41 @@ fn draw_rectangle(globals: &Globals, model_mat: cgmath::Matrix4<f32>, frag_enum:
         .context
         .draw_arrays(web_sys::WebGl2RenderingContext::TRIANGLES, 0, 6);
 }
-fn draw_triangle(globals: &Globals, model_mat: cgmath::Matrix4<f32>, frag_enum: FragEnum) {
+fn draw_triangles_frags(
+    globals: &Globals,
+    model_mat: cgmath::Matrix4<f32>,
+    frag_enum: Option<FragEnum>,
+    start: i32,
+    count: i32,
+    do_wires: bool,
+) {
     globals.context.uniform_matrix4fv_with_f32_array(
         Some(&globals.model_matrix_location),
         false,
         &matrix_to_vec(model_mat),
     );
-    if TRIANGLE_FRAGS {
-        globals
-            .context
-            .uniform1ui(Some(&globals.frag_enum_location), frag_enum as u32);
-        globals
-            .context
-            .draw_arrays(web_sys::WebGl2RenderingContext::TRIANGLES, 6, 960);
+    if let Some(frag_enum) = frag_enum {
+        if TRIANGLE_FRAGS {
+            globals
+                .context
+                .uniform1ui(Some(&globals.frag_enum_location), frag_enum as u32);
+            globals.context.draw_arrays(
+                web_sys::WebGl2RenderingContext::TRIANGLES,
+                start,
+                count * 3,
+            );
+        }
     }
-    for i in 0..320 {
-        globals
-            .context
-            .uniform1ui(Some(&globals.frag_enum_location), FragEnum::Black as u32);
-        globals
-            .context
-            .draw_arrays(web_sys::WebGl2RenderingContext::LINE_LOOP, 6 + (3 * i), 3);
+    if do_wires {
+        for i in 0..count {
+            globals
+                .context
+                .uniform1ui(Some(&globals.frag_enum_location), FragEnum::Black as u32);
+            globals.context.draw_arrays(
+                web_sys::WebGl2RenderingContext::LINE_LOOP,
+                start + (3 * i),
+                3,
+            );
+        }
     }
 }
