@@ -8,7 +8,7 @@ authors = ["陈功 <chengong456@qq.com>"]
 crate-type = ["cdylib"]
 
 [dependencies]
-andys_webgl_main = { version = "0.1.0", path = "../andys_webgl_main" }
+andy_webgl_utils = { version = "0.1.0", path = "../andy_webgl_utils" }
 wasm-bindgen = "0.2.87"
 wasm-bindgen-futures = "0.4.37"
 js-sys = "0.3.66"

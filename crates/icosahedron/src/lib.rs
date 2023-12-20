@@ -181,9 +181,9 @@ fn set_canvas(
             .flat_map(|t| t.iter().flat_map(|v| [v.x, v.y, v.z]).collect::<Vec<f32>>())
             .collect::<Vec<f32>>(),
     );
-    let (_context, _program) = andys_webgl_main::setup_canvas(
+    let (_context, _program) = andy_webgl_utils::setup_canvas(
         name,
-        andys_webgl_main::ShaderProg {
+        andy_webgl_utils::ShaderProg {
             vert_shader_source: include_str!("./shaders_source/vertex.glsl"),
             frag_shader_source: include_str!("./shaders_source/frag.glsl"),
             verts: &verts,

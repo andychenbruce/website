@@ -1,0 +1,32 @@
+{
+  "generic_headers": "generic_headers.html",
+  "menu_bar": "menu_bar.html",
+  "input_dir": "site_src/static_files/",
+  "output_dir": "root_server/",
+  "pages": [
+    {
+      "body_file": "index.html",
+      "out_file": "index.html",
+      "web_assembly_loads": []
+    },
+    {
+      "body_file": "icosahedron/icosahedron.html",
+      "out_file": "icosahedron/icosahedron.html",
+      "web_assembly_loads": ["icosahedron"]
+    }
+  ],
+  "file_exact_copy": [
+    {
+      "in_file": "home_page.css",
+      "out_file": "home_page.css"
+    },
+    {
+      "in_file": "main.js",
+      "out_file": "main.js"
+    },
+    {
+      "in_file": "Andy-HPA.jpg",
+      "out_file": "Andy-HPA.jpg"
+    }
+  ]
+}

@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
   "crates/andy_http_server",
-  "crates/andys_webgl_main",
+  "crates/static_site_generator",
+  "crates/andy_webgl_utils",
   "crates/icosahedron"
-]
+ ]
