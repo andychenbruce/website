@@ -484,6 +484,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "navier_stokes"
+version = "0.1.0"
+dependencies = [
+ "andy_webgl_utils",
+ "cgmath",
+ "console_error_panic_hook",
+ "js-sys",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "num-traits"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"

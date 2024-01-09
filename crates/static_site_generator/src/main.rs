@@ -44,7 +44,7 @@ fn build_package(name: &str, out_dir: std::path::PathBuf) {
         .args([
             "--target",
             "web",
-            "./target/wasm32-unknown-unknown/debug/icosahedron.wasm",
+            &format!("./target/wasm32-unknown-unknown/debug/{}.wasm", name),
             "--out-dir",
             out_dir.join("andy_wasm").to_str().unwrap(),
         ])

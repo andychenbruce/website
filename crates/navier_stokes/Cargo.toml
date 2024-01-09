@@ -1,17 +1,19 @@
 [package]
-name = "andy_webgl_utils"
+name = "navier_stokes"
 version = "0.1.0"
 edition = "2021"
 authors = ["陈功 <chengong456@qq.com>"]
 
 [lib]
-crate-type = ["lib"]
+crate-type = ["cdylib"]
 
 [dependencies]
+andy_webgl_utils = { workspace = true }
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
 js-sys = { workspace = true }
 console_error_panic_hook = { workspace = true }
+cgmath = { workspace = true }
 
 [dependencies.web-sys]
 workspace = true
